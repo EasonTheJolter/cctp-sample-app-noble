@@ -5,6 +5,7 @@ export enum Chain {
   ETH = 'ETH',
   AVAX = 'AVAX',
   ARB = 'ARB',
+  JOLTIFY = 'JOLTIFY',
 }
 
 /**
@@ -67,6 +68,7 @@ export enum DestinationDomain {
   ETH = 0,
   AVAX = 1,
   ARB = 3,
+  JOLTIFY = 4,
 }
 
 // https://eips.ethereum.org/EIPS/eip-3085

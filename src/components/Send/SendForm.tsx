@@ -31,6 +31,11 @@ interface SelectItem {
 
 const CHAIN_SELECT_ITEMS: SelectItem[] = [
   {
+    value: Chain.JOLTIFY,
+    label: 'Joltify',
+    icon: CHAIN_ICONS[Chain.JOLTIFY],
+  },
+  {
     value: Chain.ETH,
     label: CHAIN_TO_CHAIN_NAME[Chain.ETH],
     icon: CHAIN_ICONS[Chain.ETH],
