@@ -5,7 +5,7 @@ export enum Chain {
   ETH = 'ETH',
   AVAX = 'AVAX',
   ARB = 'ARB',
-  JOLTIFY = 'JOLTIFY',
+  NOBLE = 'NOBLE',
 }
 
 /**
@@ -15,6 +15,7 @@ export enum SupportedChainId {
   ETH_SEPOLIA = 11155111,
   AVAX_FUJI = 43113,
   ARB_SEPOLIA = 421614,
+  NOBLE = 'noble-1',
 }
 
 /**
@@ -28,7 +29,7 @@ export const SupportedChainIdHex = {
 }
 
 interface ChainToChainIdMap {
-  [key: string]: number
+  [key: string]: number | string
 }
 
 /**
@@ -68,7 +69,7 @@ export enum DestinationDomain {
   ETH = 0,
   AVAX = 1,
   ARB = 3,
-  JOLTIFY = 4,
+  NOBLE = 4,
 }
 
 // https://eips.ethereum.org/EIPS/eip-3085

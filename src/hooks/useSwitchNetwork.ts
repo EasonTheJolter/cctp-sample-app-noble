@@ -26,7 +26,10 @@ const useSwitchNetwork = (chain: string) => {
       const switchChainId = CHAIN_TO_CHAIN_ID[chain]
       // only attempt to switch if the state is mismatched
       if (chainId !== switchChainId) {
-        const hexChainId = numToHex(CHAIN_TO_CHAIN_ID[chain])
+        const hexChainId =
+          typeof CHAIN_TO_CHAIN_ID[chain] === 'number'
+            ? numToHex(CHAIN_TO_CHAIN_ID[chain] as number)
+            : (CHAIN_TO_CHAIN_ID[chain] as string)
         try {
           await library.provider.request({
             method: 'wallet_switchEthereumChain',

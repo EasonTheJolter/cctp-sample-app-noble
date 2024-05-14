@@ -31,9 +31,9 @@ interface SelectItem {
 
 const CHAIN_SELECT_ITEMS: SelectItem[] = [
   {
-    value: Chain.JOLTIFY,
-    label: 'Joltify',
-    icon: CHAIN_ICONS[Chain.JOLTIFY],
+    value: Chain.NOBLE,
+    label: 'Noble',
+    icon: CHAIN_ICONS[Chain.NOBLE],
   },
   {
     value: Chain.ETH,
@@ -54,7 +54,7 @@ const CHAIN_SELECT_ITEMS: SelectItem[] = [
 
 export const DEFAULT_FORM_INPUTS: TransactionInputs = {
   source: Chain.ETH,
-  target: Chain.AVAX,
+  target: Chain.NOBLE,
   address: '',
   amount: '',
 }
