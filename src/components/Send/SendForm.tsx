@@ -80,7 +80,7 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
       target !== '' &&
       source !== target &&
       address !== '' &&
-      address === account &&
+      // address === account &&
       amount !== '' &&
       !isNaN(+amount) &&
       +amount > 0 &&
@@ -117,7 +117,7 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
       return 'Please connect your wallet and check your selected network'
     }
     if (address !== '' && address !== account) {
-      return "Destination address doesn't match active wallet address"
+      // return "Destination address doesn't match active wallet address"
     }
     return ' '
   }, [address, account, active])
@@ -134,6 +134,8 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
   }, [amount, walletUSDCBalance])
 
   const handleSourceChange = (value: string) => {
+    if (value === Chain.NOBLE) return
+    console.log('handleSourceChange value', value)
     handleUpdateForm((state) => ({
       ...state,
       source: value,
@@ -151,6 +153,7 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
   }
 
   const handleCopyFromWallet = () => {
+    if (target === Chain.NOBLE) return
     handleUpdateForm((state) => ({
       ...state,
       address: account ?? '',
@@ -180,7 +183,10 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
             value={source}
             onChange={(event) => handleSourceChange(event.target.value)}
           >
-            {CHAIN_SELECT_ITEMS.map((chain) => renderChainMenuItem(chain))}
+            {CHAIN_SELECT_ITEMS.map((chain) => {
+              if (chain.value === Chain.NOBLE) return null
+              return renderChainMenuItem(chain)
+            })}
           </Select>
         </FormControl>
 
@@ -199,9 +205,10 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
               }))
             }
           >
-            {CHAIN_SELECT_ITEMS.map((chain) =>
-              renderChainMenuItem(chain, source)
-            )}
+            {CHAIN_SELECT_ITEMS.map((chain) => {
+              if (chain.value !== Chain.NOBLE) return null
+              return renderChainMenuItem(chain, source)
+            })}
           </Select>
         </FormControl>
       </div>
@@ -212,7 +219,7 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
           label="Destination Address"
           variant="outlined"
           value={address}
-          error={address !== '' && address !== account}
+          // error={address !== '' && address !== account}
           helperText={getAddressHelperText}
           onChange={(event) =>
             handleUpdateForm((state) => ({
@@ -221,19 +228,19 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
             }))
           }
           InputLabelProps={{ shrink: true }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <Button
-                  color="secondary"
-                  onClick={handleCopyFromWallet}
-                  disabled={!account || !active}
-                >
-                  COPY FROM WALLET
-                </Button>
-              </InputAdornment>
-            ),
-          }}
+          // InputProps={{
+          //   endAdornment: (
+          //     <InputAdornment position="end">
+          //       <Button
+          //         color="secondary"
+          //         onClick={handleCopyFromWallet}
+          //         disabled={!account || !active}
+          //       >
+          //         COPY FROM WALLET
+          //       </Button>
+          //     </InputAdornment>
+          //   ),
+          // }}
         />
       </FormControl>
 
