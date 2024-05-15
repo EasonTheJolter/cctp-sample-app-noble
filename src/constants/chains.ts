@@ -80,7 +80,7 @@ export enum DestinationDomain {
   ETH = 0,
   AVAX = 1,
   ARB = 3,
-  NOBLE = 4,
+  NOBLE = 4, // noble domain: https://developers.circle.com/stablecoins/docs/noble-cosmos-module#testnet-and-mainnet-module-address
 }
 
 // https://eips.ethereum.org/EIPS/eip-3085
