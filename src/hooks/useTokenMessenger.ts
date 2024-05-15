@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 
 import { useWeb3React } from '@web3-react/core'
+import { type BigNumber, ethers } from 'ethers'
 
 import { TokenMessenger__factory } from 'typechain/index'
 import { addressToBytes32 } from 'utils'
@@ -11,7 +12,9 @@ import type {
   Web3Provider,
 } from '@ethersproject/providers'
 import type { DestinationDomain, SupportedChainId } from 'constants/chains'
-import type { BigNumber } from 'ethers'
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires
+const { bech32 } = require('bech32')
 
 /**
  * Returns a list of methods to call the Token Messenger contract
@@ -43,13 +46,23 @@ const useTokenMessenger = (chainId: SupportedChainId | undefined) => {
         library.getSigner()
       )
 
+      console.log('depositForBurn', {
+        amount,
+        destinationDomain, // 4
+        mintRecipient, // noble1k74p0mrdm2a94u7kqpcrfv5lxwnd5wh6uruqln
+        burnToken,
+      })
+
+      let _mintRecipient = addressToBytes32(mintRecipient)
+      if (mintRecipient.startsWith('noble')) {
+        const numberArray = bech32.fromWords(bech32.decode(mintRecipient).words)
+        const mintRecipientBytes = new Uint8Array(32)
+        mintRecipientBytes.set(numberArray, 32 - numberArray.length)
+        _mintRecipient = ethers.utils.hexlify(mintRecipientBytes)
+      }
+
       return await contract
-        .depositForBurn(
-          amount,
-          destinationDomain,
-          addressToBytes32(mintRecipient),
-          burnToken
-        )
+        .depositForBurn(amount, destinationDomain, _mintRecipient, burnToken)
         .then((response: TransactionResponse) => {
           return response
         })
