@@ -9,9 +9,15 @@ export default class ChainStore {
 
   @observable
   fromChainType: ChainType = 'evm'
-
   @action
   setFromChainType(fromChainType: ChainType) {
     this.fromChainType = fromChainType
+  }
+
+  @observable
+  toChainType: ChainType = 'cosmos'
+  @action
+  setToChainType(toChainType: ChainType) {
+    this.toChainType = toChainType
   }
 }
