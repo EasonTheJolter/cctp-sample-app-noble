@@ -15,7 +15,7 @@ import { formatUnits } from 'ethers/lib/utils'
 
 import { CHAIN_ICONS } from 'assets/chains'
 import NetworkAlert from 'components/NetworkAlert/NetworkAlert'
-import { Chain, CHAIN_TO_CHAIN_ID, CHAIN_TO_CHAIN_NAME } from 'constants/chains'
+import { Chain, CHAIN_TO_CHAIN_ID, CHAIN_TO_CHAIN_NAME, SupportedChainId } from 'constants/chains'
 import { DEFAULT_DECIMALS } from 'constants/tokens'
 import useTokenBalance from 'hooks/useTokenBalance'
 import { getUSDCContractAddress } from 'utils/addresses'
@@ -81,6 +81,7 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
   const balance = useTokenBalance(USDC_ADDRESS, account ?? '')
 
   const updateFormIsValid = useCallback(() => {
+    console.log({source, chainId})
     const isValid =
       source !== '' &&
       target !== '' &&
@@ -91,7 +92,9 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
       !isNaN(+amount) &&
       +amount > 0 &&
       +amount <= walletUSDCBalance &&
-      CHAIN_TO_CHAIN_ID[source] === chainId
+      ( ( chainStore.fromChainType==='evm' && CHAIN_TO_CHAIN_ID[source] === chainId) // // this chainId if from useWeb3React, only suitable for EVM
+        || ( chainStore.fromChainType==='cosmos' && CHAIN_TO_CHAIN_ID[source] === SupportedChainId.NOBLE )
+      )
     setIsFormValid(isValid)
   }, [source, target, address, account, amount, walletUSDCBalance, chainId])
 
