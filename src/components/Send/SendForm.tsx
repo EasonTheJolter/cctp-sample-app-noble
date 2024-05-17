@@ -73,6 +73,7 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
   const USDC_ADDRESS = getUSDCContractAddress(chainId)
 
   const cosmosWalletStore = useStore('cosmosWalletStore')
+  const chainStore = useStore('chainStore')
 
   const [walletUSDCBalance, setWalletUSDCBalance] = useState(0)
   const { source, target, address, amount } = formInputs
@@ -120,14 +121,22 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
   )
 
   const getAddressHelperText = useMemo(() => {
-    if (address !== '' && (!account || !active)) {
-      return 'Please connect your wallet and check your selected network'
+    if ( address !== '' // means receiver address is entered
+      && (
+        ((!account || !active) && chainStore.fromChainType!=='cosmos') 
+        || (
+          !cosmosWalletStore.address // means cosmos wallet is not connected
+          && chainStore.fromChainType==='cosmos'
+        )
+      )
+    ) {
+      // return 'Please connect your wallet and check your selected network'
     }
     if (address !== '' && address !== account) {
       // return "Destination address doesn't match active wallet address"
     }
     return ' '
-  }, [address, account, active])
+  }, [address, account, active, cosmosWalletStore.address, chainStore.fromChainType])
 
   const getAmountHelperText = useMemo(() => {
     console.log({amount, walletUSDCBalance})
