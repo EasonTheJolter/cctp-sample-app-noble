@@ -147,7 +147,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       })
       console.log('msg', msg)
 
-      const signer = keplr.getOfflineSigner(SupportedChainId.NOBLE)
+      const signer = keplr.getOfflineSignerOnlyAmino(SupportedChainId.NOBLE)
       let client:SigningStargateClient 
       try {
         client = await SigningStargateClient.connectWithSigner(
