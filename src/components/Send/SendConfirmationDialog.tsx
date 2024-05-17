@@ -36,9 +36,11 @@ import type { Web3Provider } from '@ethersproject/providers'
 import type { SxProps } from '@mui/material'
 import type { Chain } from 'constants/chains'
 import type { TransactionInputs } from 'contexts/AppContext'
-import type { BigNumber } from 'ethers'
+import { ethers, type BigNumber } from 'ethers'
 import { observer } from 'mobx-react-lite'
 import { useStore } from 'stores/hooks'
+
+import {circle} from '../../codegen'
 
 interface Props {
   handleClose: () => void
@@ -62,6 +64,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
   const [isSending, setIsSending] = useState(false)
 
   const chainStore = useStore('chainStore')
+  const cosmosWalletStore = useStore('cosmosWalletStore')
 
   const USDC_ADDRESS = getUSDCContractAddress(chainId)
   const TOKEN_MESSENGER_ADDRESS = getTokenMessengerContractAddress(chainId)
@@ -80,7 +83,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
 
     // amount <= allowance, sufficient
     setIsAllowanceSufficient(
-      parseUnits(amount ?? 0, DEFAULT_DECIMALS).lte(allowance)
+      parseUnits(amount ?? '0', DEFAULT_DECIMALS).lte(allowance)
     )
   }, [account, active, allowance, amount])
 
@@ -114,17 +117,33 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
   }
 
   const handleSend = async () => {
-    if (chainStore.fromChainType === 'cosmos') {
-      
-      return
-    }
-
+    console.log('handleSend')
+    
     const amountToSend: BigNumber = parseUnits(
       amount.toString(),
       DEFAULT_DECIMALS
     )
 
     setIsSending(true)
+
+    if (chainStore.fromChainType === 'cosmos') {
+      console.log('cosmosWalletStore.address', cosmosWalletStore.address)
+      if (!cosmosWalletStore.address) return
+      const {depositForBurn} = circle.cctp.v1.MessageComposer.withTypeUrl
+      const checksumAddress = ethers.utils.getAddress(address)
+      const mintRecipient = ethers.utils.arrayify(checksumAddress)
+      const msg = depositForBurn({
+        from: cosmosWalletStore.address,
+        amount: amountToSend.toString(),
+        destinationDomain: DestinationDomain[target as Chain], 
+        mintRecipient,
+        burnToken: 'noble12l2w4ugfz4m6dd73yysz477jszqnfughxvkss5', // https://developers.circle.com/stablecoins/docs/noble-cosmos-module#testnet-and-mainnet-module-address
+      })
+      console.log('msg', msg)
+      setIsSending(false)
+      return
+    }
+
     try {
       const response = await depositForBurn(
         amountToSend,
