@@ -13,9 +13,15 @@ import type { TransactionInputs } from 'contexts/AppContext'
 import { observer } from 'mobx-react-lite'
 import { useStore } from 'stores/hooks'
 import { Chain } from 'constants/chains'
+import { useWeb3React } from '@web3-react/core'
+import type { Web3Provider } from '@ethersproject/providers'
 
 export default observer(function Send() {
   const chainStorore = useStore('chainStore')
+  const cosmosWalletStore = useStore('cosmosWalletStore')
+
+  const { deactivate } = useWeb3React<Web3Provider>()
+
   const [formInputs, setFormInputs] =
     useState<TransactionInputs>(DEFAULT_FORM_INPUTS)
   const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] =
@@ -26,7 +32,13 @@ export default observer(function Send() {
 
   useEffect(() => {
     const source = formInputs.source
-    chainStorore.setFromChainType(source===Chain.NOBLE ? 'cosmos' : 'evm')
+    const fromChainType = source === Chain.NOBLE ? 'cosmos' : 'evm'
+    chainStorore.setFromChainType(fromChainType)
+    if (fromChainType==='evm') {
+      cosmosWalletStore.logout()
+    } else {
+      deactivate()
+    }
   }, [formInputs.source])
 
   useEffect(() => {
