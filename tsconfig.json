@@ -14,7 +14,8 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": "./src"
+    "baseUrl": "./src",
+    "experimentalDecorators": true
   },
   "include": ["react-app-env.d.ts", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]

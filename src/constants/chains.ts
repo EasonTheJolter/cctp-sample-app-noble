@@ -50,6 +50,7 @@ export const CHAIN_TO_CHAIN_ID: ChainToChainIdMap = {
   [Chain.ETH]: SupportedChainId.ETH,
   [Chain.AVAX]: SupportedChainId.AVAX,
   [Chain.ARB]: SupportedChainId.ARB,
+  [Chain.NOBLE]: SupportedChainId.NOBLE,
 }
 
 interface ChainToChainNameMap {

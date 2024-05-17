@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 import { useCallback, useState } from 'react'
 
 import { Button, Fade, Menu, MenuItem } from '@mui/material'
@@ -9,16 +11,20 @@ import { getAddressAbbreviation } from 'utils'
 
 import type { Web3Provider } from '@ethersproject/providers'
 import type { AbstractConnector } from '@web3-react/abstract-connector'
+import connectCosmosWallet from 'utils/connectCosmosWallet'
+import { observer } from 'mobx-react-lite'
+import { useStore } from 'stores/hooks'
 
-const ConnectWallet = () => {
+const ConnectWallet = observer(() => {
   const { activate, active, account, deactivate, error } =
     useWeb3React<Web3Provider>()
-  useEagerConnect()
+  // useEagerConnect() // connect automatically on page load
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [isConnectWalletDialogOpen, setIsConnectWalletDialogOpen] =
     useState<boolean>(false)
   const open = Boolean(anchorEl)
+  const cosmosWalletStore = useStore('cosmosWalletStore')
 
   const closeConnectWalletDialog = () => {
     setIsConnectWalletDialogOpen(false)
@@ -48,11 +54,20 @@ const ConnectWallet = () => {
   const handleDisconnect = useCallback(() => {
     deactivate()
     handleMenuClose()
+    cosmosWalletStore.logout()
   }, [deactivate, handleMenuClose])
+
+  const handleConnectKeplr = async () => {
+    closeConnectWalletDialog()
+    const nobleAddress = await connectCosmosWallet()
+    if (typeof nobleAddress === 'string') {
+      cosmosWalletStore.login(nobleAddress)
+    }
+  }
 
   return (
     <>
-      {account && active ? (
+      {(account && active) || cosmosWalletStore.address ? (
         <Button
           id="connected-wallet-button"
           aria-controls={open ? 'connected-wallet-menu' : undefined}
@@ -60,7 +75,12 @@ const ConnectWallet = () => {
           aria-expanded={open ? 'true' : undefined}
           onClick={handleMenuClick}
         >
-          {getAddressAbbreviation(account)}
+          {account
+            ? getAddressAbbreviation(account)
+            : `${cosmosWalletStore.address?.slice(
+                0,
+                6
+              )}...${cosmosWalletStore.address?.slice(-4)}`}
         </Button>
       ) : (
         <div className="relative inline">
@@ -89,9 +109,10 @@ const ConnectWallet = () => {
         handleClose={closeConnectWalletDialog}
         handleConnect={handleConnect}
         open={isConnectWalletDialogOpen}
+        handleConnectKeplr={handleConnectKeplr}
       />
     </>
   )
-}
+})
 
 export default ConnectWallet

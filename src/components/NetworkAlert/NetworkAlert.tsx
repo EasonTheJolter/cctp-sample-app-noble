@@ -1,7 +1,7 @@
 import { Alert, Button } from '@mui/material'
 import { useWeb3React } from '@web3-react/core'
 
-import { CHAIN_TO_CHAIN_ID } from 'constants/chains'
+import { Chain, CHAIN_TO_CHAIN_ID } from 'constants/chains'
 import useSwitchNetwork from 'hooks/useSwitchNetwork'
 
 import type { Web3Provider } from '@ethersproject/providers'
@@ -14,8 +14,13 @@ interface Props {
 const NetworkAlert: React.FC<Props> = ({ chain, className }) => {
   const { chainId } = useWeb3React<Web3Provider>()
   const { switchNetwork } = useSwitchNetwork(chain)
+  console.log({ chain, chainId })
 
-  if (chainId != null && CHAIN_TO_CHAIN_ID[chain] !== chainId) {
+  if (
+    chain !== Chain.NOBLE &&
+    chainId != null &&
+    CHAIN_TO_CHAIN_ID[chain] !== chainId
+  ) {
     return (
       <Alert
         className={className}
