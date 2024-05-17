@@ -41,6 +41,10 @@ import { observer } from 'mobx-react-lite'
 import { useStore } from 'stores/hooks'
 
 import {circle} from '../../codegen'
+import { SigningStargateClient } from '@cosmjs/stargate'
+import { Keplr } from '@keplr-wallet/types'
+
+import { Decimal } from "@cosmjs/math"
 
 interface Props {
   handleClose: () => void
@@ -127,20 +131,56 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
     setIsSending(true)
 
     if (chainStore.fromChainType === 'cosmos') {
+      const keplr:Keplr = (window as any).keplr
       console.log('cosmosWalletStore.address', cosmosWalletStore.address)
       if (!cosmosWalletStore.address) return
       const {depositForBurn} = circle.cctp.v1.MessageComposer.withTypeUrl
       const checksumAddress = ethers.utils.getAddress(address)
       const mintRecipient = ethers.utils.arrayify(checksumAddress)
+      const from = cosmosWalletStore.address
       const msg = depositForBurn({
-        from: cosmosWalletStore.address,
+        from,
         amount: amountToSend.toString(),
         destinationDomain: DestinationDomain[target as Chain], 
         mintRecipient,
         burnToken: 'noble12l2w4ugfz4m6dd73yysz477jszqnfughxvkss5', // https://developers.circle.com/stablecoins/docs/noble-cosmos-module#testnet-and-mainnet-module-address
       })
       console.log('msg', msg)
-      setIsSending(false)
+
+      const signer = keplr.getOfflineSigner(SupportedChainId.NOBLE)
+      let client:SigningStargateClient 
+      try {
+        client = await SigningStargateClient.connectWithSigner(
+          'https://noble-rpc.polkachu.com',
+          signer,
+          {gasPrice: {amount: Decimal.fromUserInput('80000', 0), denom: 'uusdc'}}
+        )
+      } catch(error) {
+        setIsSending(false)
+        alert(error.message ?? error.toString())
+        return
+      }
+      let fee = {amount: [{amount: '0', denom: 'ujolt'}], gas: '999999999'}
+      try {
+        fee = {amount: [{amount: '0', denom: 'ujolt'}], gas:((await client.simulate(from, [msg],''))*Number(2)).toString()}
+      } catch(error) {
+        setIsSending(false)
+        alert(error.message ?? error.toString())
+        return
+      }
+      client.signAndBroadcast(from, [msg], fee).then(res=>{
+        if (res.code === 0) {
+          if (confirm('Transaction was successful. Do you want to see the transaction on the explorer?')) {
+            window.open(`https://www.mintscan.io/noble/tx/${res.transactionHash}`)
+          } else {
+            alert(res.rawLog ?? res.toString())
+          }
+        }
+      }).catch(error=>{
+        alert(error.message ?? error.toString())
+      }).finally(()=>{
+        setIsSending(false)
+      })
       return
     }
 
