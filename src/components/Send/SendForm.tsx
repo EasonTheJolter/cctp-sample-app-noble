@@ -25,6 +25,8 @@ import type { TransactionInputs } from 'contexts/AppContext'
 
 import { observer } from 'mobx-react-lite'
 import { useStore } from 'stores/hooks'
+import isCosmosAddress from 'utils/isCosmosAddress'
+import { ethers } from 'ethers'
 
 interface SelectItem {
   value: Chain
@@ -88,6 +90,7 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
       source !== target &&
       address !== '' &&
       // address === account &&
+      getAddressHelperText === '' &&
       amount !== '' &&
       !isNaN(+amount) &&
       +amount > 0 &&
@@ -129,6 +132,7 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
   )
 
   const getAddressHelperText = useMemo(() => {
+    if (address==='') return ''
     if ( address !== '' // means receiver address is entered
       && (
         ((!account || !active) && chainStore.fromChainType!=='cosmos') 
@@ -143,7 +147,13 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
     if (address !== '' && address !== account) {
       // return "Destination address doesn't match active wallet address"
     }
-    return ' '
+    if (chainStore.toChainType==='cosmos' && !isCosmosAddress({address, prefix: 'noble'})) {
+      return 'Invalid Noble address'
+    }
+    if (chainStore.toChainType==='evm' && !ethers.utils.isAddress(address)) {
+      return 'Invalid Ethereum address'
+    }
+    return ''
   }, [address, account, active, cosmosWalletStore.address, chainStore.fromChainType])
 
   const getAmountHelperText = useMemo(() => {
@@ -244,7 +254,7 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
           label="Destination Address"
           variant="outlined"
           value={address}
-          // error={address !== '' && address !== account}
+          error={!!getAddressHelperText}
           helperText={getAddressHelperText}
           onChange={(event) =>
             handleUpdateForm((state) => ({
