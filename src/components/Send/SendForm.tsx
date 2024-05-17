@@ -96,14 +96,19 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
   }, [source, target, address, account, amount, walletUSDCBalance, chainId])
 
   useEffect(() => {
-    if (account && active) {
+    if (account && active) { // evm wallet connected
       setWalletUSDCBalance(Number(formatUnits(balance, DEFAULT_DECIMALS)))
-    } else if (cosmosWalletStore.address) {
+    } else if (cosmosWalletStore.address) { // keplr wallet connected
       // get cosmos wallet balance
+      fetch(`https://lcd-noble.keplr.app/cosmos/bank/v1beta1/balances/${cosmosWalletStore.address}`)
+      .then((response) => response.json()).then((data) => {
+        const balance = data.balances.find((balance: any) => balance.denom === 'uusdc')
+        setWalletUSDCBalance(Number(balance.amount)/10**6)
+      })
     } else {
       setWalletUSDCBalance(0)
     }
-  }, [account, active, balance])
+  }, [account, active, balance, cosmosWalletStore.address])
 
   useEffect(updateFormIsValid, [updateFormIsValid])
 
