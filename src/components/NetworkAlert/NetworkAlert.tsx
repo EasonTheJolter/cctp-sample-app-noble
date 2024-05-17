@@ -14,7 +14,7 @@ interface Props {
 const NetworkAlert: React.FC<Props> = ({ chain, className }) => {
   const { chainId } = useWeb3React<Web3Provider>()
   const { switchNetwork } = useSwitchNetwork(chain)
-  console.log({ chain, chainId })
+  // console.log({ chain, chainId })
 
   if (
     chain !== Chain.NOBLE &&
