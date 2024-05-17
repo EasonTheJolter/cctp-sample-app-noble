@@ -42,6 +42,10 @@ export default observer(function Send() {
   }, [formInputs.source])
 
   useEffect(() => {
+    chainStorore.setToChainType(formInputs.target===Chain.NOBLE ? 'cosmos' : 'evm')
+  }, [formInputs.target])
+
+  useEffect(() => {
     // Redirect to Redeem page if send tx is complete and signature is fetched or it's a redeem tx
     if (
       transaction &&
