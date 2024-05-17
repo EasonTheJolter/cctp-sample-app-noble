@@ -10,8 +10,12 @@ import { useQueryParam } from 'hooks/useQueryParam'
 import { useTransactionPolling } from 'hooks/useTransactionPolling'
 
 import type { TransactionInputs } from 'contexts/AppContext'
+import { observer } from 'mobx-react-lite'
+import { useStore } from 'stores/hooks'
+import { Chain } from 'constants/chains'
 
-function Send() {
+export default observer(function Send() {
+  const chainStorore = useStore('chainStore')
   const [formInputs, setFormInputs] =
     useState<TransactionInputs>(DEFAULT_FORM_INPUTS)
   const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] =
@@ -19,6 +23,11 @@ function Send() {
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false)
   const { txHash, transaction, setSearchParams } = useQueryParam()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const source = formInputs.source
+    chainStorore.setFromChainType(source===Chain.NOBLE ? 'cosmos' : 'evm')
+  }, [formInputs.source])
 
   useEffect(() => {
     // Redirect to Redeem page if send tx is complete and signature is fetched or it's a redeem tx
@@ -104,6 +113,4 @@ function Send() {
       )}
     </>
   )
-}
-
-export default Send
+})
