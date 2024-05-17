@@ -16,7 +16,7 @@ import { parseUnits } from 'ethers/lib/utils'
 
 import NetworkAlert from 'components/NetworkAlert/NetworkAlert'
 import TransactionDetails from 'components/TransactionDetails/TransactionDetails'
-import { CHAIN_TO_CHAIN_ID, DestinationDomain } from 'constants/chains'
+import { CHAIN_TO_CHAIN_ID, DestinationDomain, SupportedChainId } from 'constants/chains'
 import { DEFAULT_DECIMALS } from 'constants/tokens'
 import {
   TransactionStatus,
@@ -37,6 +37,8 @@ import type { SxProps } from '@mui/material'
 import type { Chain } from 'constants/chains'
 import type { TransactionInputs } from 'contexts/AppContext'
 import type { BigNumber } from 'ethers'
+import { observer } from 'mobx-react-lite'
+import { useStore } from 'stores/hooks'
 
 interface Props {
   handleClose: () => void
@@ -46,7 +48,7 @@ interface Props {
   sx?: SxProps
 }
 
-const SendConfirmationDialog: React.FC<Props> = ({
+const SendConfirmationDialog: React.FC<Props> = observer(({
   handleClose,
   handleNext,
   open,
@@ -58,6 +60,8 @@ const SendConfirmationDialog: React.FC<Props> = ({
   const [isAllowanceSufficient, setIsAllowanceSufficient] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
   const [isSending, setIsSending] = useState(false)
+
+  const chainStore = useStore('chainStore')
 
   const USDC_ADDRESS = getUSDCContractAddress(chainId)
   const TOKEN_MESSENGER_ADDRESS = getTokenMessengerContractAddress(chainId)
@@ -110,6 +114,11 @@ const SendConfirmationDialog: React.FC<Props> = ({
   }
 
   const handleSend = async () => {
+    if (chainStore.fromChainType === 'cosmos') {
+      
+      return
+    }
+
     const amountToSend: BigNumber = parseUnits(
       amount.toString(),
       DEFAULT_DECIMALS
@@ -167,7 +176,7 @@ const SendConfirmationDialog: React.FC<Props> = ({
         <Button size="large" color="secondary" onClick={handleClose}>
           BACK
         </Button>
-        {!isAllowanceSufficient ? (
+        {( chainStore.fromChainType==='evm' && !isAllowanceSufficient) ? (
           <LoadingButton
             size="large"
             onClick={handleApprove}
@@ -183,7 +192,10 @@ const SendConfirmationDialog: React.FC<Props> = ({
             size="large"
             onClick={handleSend}
             disabled={
-              isSending || CHAIN_TO_CHAIN_ID[formInputs.source] !== chainId
+              isSending || ( 
+                (chainStore.fromChainType==='evm' && CHAIN_TO_CHAIN_ID[formInputs.source] !== chainId) // chainId is from evm wallet
+                || (chainStore.fromChainType==='cosmos' && CHAIN_TO_CHAIN_ID[formInputs.source] !== SupportedChainId.NOBLE)
+              )
             }
             loading={isSending}
           >
@@ -197,6 +209,6 @@ const SendConfirmationDialog: React.FC<Props> = ({
       </IconButton>
     </Dialog>
   )
-}
+})
 
 export default SendConfirmationDialog
