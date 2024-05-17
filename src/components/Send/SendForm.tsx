@@ -154,7 +154,7 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
       return 'Invalid Ethereum address'
     }
     return ''
-  }, [address, account, active, cosmosWalletStore.address, chainStore.fromChainType])
+  }, [address, account, active, cosmosWalletStore.address, chainStore.fromChainType, chainStore.toChainType])
 
   const getAmountHelperText = useMemo(() => {
     console.log({amount, walletUSDCBalance})
