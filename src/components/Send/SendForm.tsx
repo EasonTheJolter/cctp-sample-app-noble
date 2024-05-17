@@ -23,6 +23,9 @@ import { getUSDCContractAddress } from 'utils/addresses'
 import type { Web3Provider } from '@ethersproject/providers'
 import type { TransactionInputs } from 'contexts/AppContext'
 
+import { observer } from 'mobx-react-lite'
+import { useStore } from 'stores/hooks'
+
 interface SelectItem {
   value: Chain
   label: string
@@ -65,9 +68,11 @@ interface Props {
   formInputs: TransactionInputs
 }
 
-const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
+const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) => {
   const { account, active, chainId } = useWeb3React<Web3Provider>()
   const USDC_ADDRESS = getUSDCContractAddress(chainId)
+
+  const cosmosWalletStore = useStore('cosmosWalletStore')
 
   const [walletUSDCBalance, setWalletUSDCBalance] = useState(0)
   const { source, target, address, amount } = formInputs
@@ -92,6 +97,8 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
   useEffect(() => {
     if (account && active) {
       setWalletUSDCBalance(Number(formatUnits(balance, DEFAULT_DECIMALS)))
+    } else if (cosmosWalletStore.address) {
+      // get cosmos wallet balance
     } else {
       setWalletUSDCBalance(0)
     }
@@ -123,6 +130,7 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
   }, [address, account, active])
 
   const getAmountHelperText = useMemo(() => {
+    console.log({amount, walletUSDCBalance})
     const balanceAvailable = `${walletUSDCBalance.toLocaleString()} available`
     if (amount !== '' && (isNaN(+amount) || +amount <= 0)) {
       return `Enter a valid amount, ${balanceAvailable}`
@@ -134,7 +142,7 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
   }, [amount, walletUSDCBalance])
 
   const handleSourceChange = (value: string) => {
-    if (value === Chain.NOBLE) return
+    // if (value === Chain.NOBLE) return
     console.log('handleSourceChange value', value)
     handleUpdateForm((state) => ({
       ...state,
@@ -184,7 +192,7 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
             onChange={(event) => handleSourceChange(event.target.value)}
           >
             {CHAIN_SELECT_ITEMS.map((chain) => {
-              if (chain.value === Chain.NOBLE) return null
+              // if (chain.value === Chain.NOBLE) return null
               return renderChainMenuItem(chain)
             })}
           </Select>
@@ -206,7 +214,7 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
             }
           >
             {CHAIN_SELECT_ITEMS.map((chain) => {
-              if (chain.value !== Chain.NOBLE) return null
+              // if (chain.value !== Chain.NOBLE) return null
               return renderChainMenuItem(chain, source)
             })}
           </Select>
@@ -289,6 +297,6 @@ const SendForm = ({ handleNext, handleUpdateForm, formInputs }: Props) => {
       </Button>
     </form>
   )
-}
+})
 
 export default SendForm
