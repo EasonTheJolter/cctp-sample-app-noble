@@ -25,6 +25,7 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
+    "@cosmjs/encoding": "^0.32.3",
     "@emotion/react": "^11.10.0",
     "@emotion/styled": "^11.10.0",
     "@keplr-wallet/types": "^0.12.89",
