@@ -1,3 +1,14 @@
+# Default Selected From and To chains setting
+src/components/Send/SendForm.tsx
+```
+export const DEFAULT_FORM_INPUTS: TransactionInputs = {
+  source: Chain.ETH,
+  target: Chain.NOBLE,
+  address: '',
+  amount: '',
+}
+```
+
 # CCTP Sample App
 
 A sample app used to demonstrate CCTP step by step capabilities on testnet. The app currently supports Ethereum Sepolia, Avalanche Fuji C-Chain, and Arbitrum Sepolia testnets.
