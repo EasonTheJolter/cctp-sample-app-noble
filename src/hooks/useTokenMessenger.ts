@@ -13,7 +13,6 @@ import type {
 } from '@ethersproject/providers'
 import type { DestinationDomain, SupportedChainId } from 'constants/chains'
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires
 const { bech32 } = require('bech32')
 
 /**
