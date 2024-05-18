@@ -156,11 +156,13 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
 
       const fees = cctpMoneyStore.cctpMoneyFees.data
       let feeAmount = ''
+      let arriveTime = 'minutes'
       for (const index in fees) {
         if (Object.prototype.hasOwnProperty.call(fees, index)) {
           const fee = fees[index]
           if (fee.name === CHAIN_TO_CHAIN_NAME[formInputs?.target as string]) {
             feeAmount = fee.fee.fixed.toString()
+            arriveTime = fee.time
           }
         }
       }
@@ -205,7 +207,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       console.log('simulate fee', fee)
       client.signAndBroadcast(from, [msgFee, msg], fee).then(res=>{
         if (res.code === 0) {
-          if (confirm('Transaction was successful. Do you want to see the transaction on the explorer?')) {
+          if (confirm(`Transaction submited. It might take ${arriveTime} for the USDCs to arrive target chain. Do you want to check the transaction on noble chain?`)) {
             window.open(`https://www.mintscan.io/noble/tx/${res.transactionHash}`)
           } else {
             alert(res.rawLog ?? res.toString())
