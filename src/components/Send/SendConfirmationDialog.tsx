@@ -36,15 +36,15 @@ import type { Web3Provider } from '@ethersproject/providers'
 import type { SxProps } from '@mui/material'
 import type { Chain } from 'constants/chains'
 import type { TransactionInputs } from 'contexts/AppContext'
-import { ethers, type BigNumber } from 'ethers'
+import { type BigNumber } from 'ethers'
 import { observer } from 'mobx-react-lite'
 import { useStore } from 'stores/hooks'
 
-import {circle} from '../../codegen'
+import {circle, getSigningCircleClient} from '../../codegen'
 import { SigningStargateClient } from '@cosmjs/stargate'
 import { Keplr } from '@keplr-wallet/types'
-
-import { Decimal } from "@cosmjs/math"
+import { OfflineSigner, Registry } from '@cosmjs/proto-signing'
+import { MsgDepositForBurn } from 'generated/tx'
 
 interface Props {
   handleClose: () => void
@@ -120,8 +120,9 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
     }
   }
 
-  const handleSend = async () => {
-    console.log('handleSend')
+  const handleSend = async ({clientType}:{
+    clientType: 'telescope'|'cctp-example'
+  }) => {
     
     const amountToSend: BigNumber = parseUnits(
       amount.toString(),
@@ -132,42 +133,58 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
 
     if (chainStore.fromChainType === 'cosmos') {
       const keplr:Keplr = (window as any).keplr
-      console.log('cosmosWalletStore.address', cosmosWalletStore.address)
       if (!cosmosWalletStore.address) return
       const {depositForBurn} = circle.cctp.v1.MessageComposer.withTypeUrl
-      const checksumAddress = ethers.utils.getAddress(address)
-      const mintRecipient = ethers.utils.arrayify(checksumAddress)
+
       const from = cosmosWalletStore.address
+
+      const cleanedMintRecipient = address.replace(/^0x/, '');
+      const zeroesNeeded = 64 - cleanedMintRecipient.length;
+      const mintRecipient = '0'.repeat(zeroesNeeded) + cleanedMintRecipient;
+      const buffer = Buffer.from(mintRecipient, "hex");
+      const mintRecipientBytes = new Uint8Array(buffer)
+
       const msg = depositForBurn({
         from,
         amount: amountToSend.toString(),
         destinationDomain: DestinationDomain[target as Chain], 
-        mintRecipient,
-        burnToken: 'noble12l2w4ugfz4m6dd73yysz477jszqnfughxvkss5', // https://developers.circle.com/stablecoins/docs/noble-cosmos-module#testnet-and-mainnet-module-address
+        mintRecipient: mintRecipientBytes,
+        burnToken: 'uusdc',
       })
-      console.log('msg', msg)
 
-      const signer = keplr.getOfflineSignerOnlyAmino(SupportedChainId.NOBLE)
-      let client:SigningStargateClient 
+      
+      const rpcEndpoint = 'https://rpc.mainnet.noble.strange.love'
+      let client: SigningStargateClient
       try {
-        client = await SigningStargateClient.connectWithSigner(
-          'https://noble-rpc.polkachu.com',
-          signer,
-          {gasPrice: {amount: Decimal.fromUserInput('80000', 0), denom: 'uusdc'}}
-        )
+        const signer = await keplr.getOfflineSignerAuto(SupportedChainId.NOBLE) as OfflineSigner
+        if (clientType==='telescope') {
+          client = await getSigningCircleClient({rpcEndpoint, signer})
+        } else {
+          client = await SigningStargateClient.connectWithSigner(
+            rpcEndpoint,
+            signer,
+            {
+              registry: new Registry([
+                ["/circle.cctp.v1.MsgDepositForBurn", MsgDepositForBurn],
+              ])
+            }
+          )
+        }
       } catch(error) {
         setIsSending(false)
         alert(error.message ?? error.toString())
         return
       }
-      let fee = {amount: [{amount: '0', denom: 'ujolt'}], gas: '999999999'}
+      let fee = {amount: [{amount: '0', denom: 'uusdc'}], gas: '200000'}
       try {
-        fee = {amount: [{amount: '0', denom: 'ujolt'}], gas:((await client.simulate(from, [msg],''))*Number(2)).toString()}
+        fee = {amount: [{amount: '0', denom: 'uusdc'}], gas:((await client.simulate(from, [msg],''))*Number(2)).toString()}
       } catch(error) {
+        console.error('simulate error', error)
         setIsSending(false)
         alert(error.message ?? error.toString())
         return
       }
+      console.log({from, msg, fee})
       client.signAndBroadcast(from, [msg], fee).then(res=>{
         if (res.code === 0) {
           if (confirm('Transaction was successful. Do you want to see the transaction on the explorer?')) {
@@ -177,6 +194,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
           }
         }
       }).catch(error=>{
+        console.error('signAndBroadcast error', error)
         alert(error.message ?? error.toString())
       }).finally(()=>{
         setIsSending(false)
@@ -247,19 +265,33 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
             APPROVE
           </LoadingButton>
         ) : (
-          <LoadingButton
-            size="large"
-            onClick={handleSend}
-            disabled={
-              isSending || ( 
-                (chainStore.fromChainType==='evm' && CHAIN_TO_CHAIN_ID[formInputs.source] !== chainId) // chainId is from evm wallet
-                || (chainStore.fromChainType==='cosmos' && CHAIN_TO_CHAIN_ID[formInputs.source] !== SupportedChainId.NOBLE)
-              )
-            }
-            loading={isSending}
-          >
-            SEND
-          </LoadingButton>
+          <>
+            <LoadingButton
+              size="large"
+              onClick={()=>handleSend({clientType:'telescope'})}
+              disabled={
+                isSending || ( 
+                  (chainStore.fromChainType==='evm' && CHAIN_TO_CHAIN_ID[formInputs.source] !== chainId) // chainId is from evm wallet
+                  || (chainStore.fromChainType==='cosmos' && CHAIN_TO_CHAIN_ID[formInputs.source] !== SupportedChainId.NOBLE)
+                )
+              }
+              loading={isSending}
+            >
+              SEND{chainStore.fromChainType==='cosmos'&&` by telescope`}
+            </LoadingButton>
+            {chainStore.fromChainType==='cosmos'&&<LoadingButton
+              size="large"
+              onClick={()=>handleSend({clientType:'cctp-example'})}
+              disabled={
+                isSending || ( 
+                  (chainStore.fromChainType==='cosmos' && CHAIN_TO_CHAIN_ID[formInputs.source] !== SupportedChainId.NOBLE)
+                )
+              }
+              loading={isSending}
+            >
+              SEND by cctp-example
+            </LoadingButton>}
+          </>
         )}
       </DialogActions>
 

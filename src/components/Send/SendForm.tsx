@@ -108,8 +108,8 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
       // get cosmos wallet balance
       fetch(`https://lcd-noble.keplr.app/cosmos/bank/v1beta1/balances/${cosmosWalletStore.address}`)
       .then((response) => response.json()).then((data) => {
-        const balance = data.balances.find((balance: any) => balance.denom === 'uusdc')
-        setWalletUSDCBalance(Number(balance.amount)/10**6)
+        const balance = data.balances.find((balance: any) => balance.denom === 'uusdc')?.amount || '0'
+        setWalletUSDCBalance(Number(balance)/10**6)
       })
     } else {
       setWalletUSDCBalance(0)
