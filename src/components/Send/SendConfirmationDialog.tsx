@@ -16,7 +16,7 @@ import { parseUnits } from 'ethers/lib/utils'
 
 import NetworkAlert from 'components/NetworkAlert/NetworkAlert'
 import TransactionDetails from 'components/TransactionDetails/TransactionDetails'
-import { CHAIN_TO_CHAIN_ID, DestinationDomain, SupportedChainId } from 'constants/chains'
+import { CHAIN_TO_CHAIN_ID, CHAIN_TO_CHAIN_NAME, DestinationDomain, SupportedChainId } from 'constants/chains'
 import { DEFAULT_DECIMALS } from 'constants/tokens'
 import {
   TransactionStatus,
@@ -40,7 +40,7 @@ import { type BigNumber } from 'ethers'
 import { observer } from 'mobx-react-lite'
 import { useStore } from 'stores/hooks'
 
-import {circle, getSigningCircleClient} from '../../codegen'
+import {circle, cosmos, getSigningCircleClient} from '../../codegen'
 import { SigningStargateClient } from '@cosmjs/stargate'
 import { Keplr } from '@keplr-wallet/types'
 import { OfflineSigner, Registry } from '@cosmjs/proto-signing'
@@ -69,6 +69,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
 
   const chainStore = useStore('chainStore')
   const cosmosWalletStore = useStore('cosmosWalletStore')
+  const cctpMoneyStore = useStore('cctpMoneyStore')
 
   const USDC_ADDRESS = getUSDCContractAddress(chainId)
   const TOKEN_MESSENGER_ADDRESS = getTokenMessengerContractAddress(chainId)
@@ -135,6 +136,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       const keplr:Keplr = (window as any).keplr
       if (!cosmosWalletStore.address) return
       const {depositForBurn} = circle.cctp.v1.MessageComposer.withTypeUrl
+      const {send} = cosmos.bank.v1beta1.MessageComposer.withTypeUrl
 
       const from = cosmosWalletStore.address
 
@@ -152,6 +154,21 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
         burnToken: 'uusdc',
       })
 
+      const fees = cctpMoneyStore.cctpMoneyFees.data
+      let feeAmount = ''
+      for (const index in fees) {
+        if (Object.prototype.hasOwnProperty.call(fees, index)) {
+          const fee = fees[index]
+          if (fee.name === CHAIN_TO_CHAIN_NAME[formInputs?.target as string]) {
+            feeAmount = fee.fee.fixed.toString()
+          }
+        }
+      }
+      const msgFee = send({
+        fromAddress: from,
+        toAddress: 'noble18jdmatzr72mktgc4ky0j3pnvue34ky4vtu4us6',
+        amount: [{denom: 'uusdc', amount: feeAmount}]
+      })
       
       const rpcEndpoint = 'https://rpc.mainnet.noble.strange.love'
       let client: SigningStargateClient
@@ -176,16 +193,17 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
         return
       }
       let fee = {amount: [{amount: '0', denom: 'uusdc'}], gas: '200000'}
+      console.log({from, msgFee, msg})
       try {
-        fee = {amount: [{amount: '0', denom: 'uusdc'}], gas:((await client.simulate(from, [msg],''))*Number(2)).toString()}
+        fee = {amount: [{amount: '0', denom: 'uusdc'}], gas:((await client.simulate(from, [msgFee, msg],''))*Number(2)).toString()}
       } catch(error) {
         console.error('simulate error', error)
         setIsSending(false)
         alert(error.message ?? error.toString())
         return
       }
-      console.log({from, msg, fee})
-      client.signAndBroadcast(from, [msg], fee).then(res=>{
+      console.log('simulate fee', fee)
+      client.signAndBroadcast(from, [msgFee, msg], fee).then(res=>{
         if (res.code === 0) {
           if (confirm('Transaction was successful. Do you want to see the transaction on the explorer?')) {
             window.open(`https://www.mintscan.io/noble/tx/${res.transactionHash}`)

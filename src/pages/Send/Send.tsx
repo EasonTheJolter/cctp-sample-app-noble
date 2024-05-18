@@ -19,6 +19,7 @@ import type { Web3Provider } from '@ethersproject/providers'
 export default observer(function Send() {
   const chainStorore = useStore('chainStore')
   const cosmosWalletStore = useStore('cosmosWalletStore')
+  const cctpMoneyStore = useStore('cctpMoneyStore')
 
   const { deactivate } = useWeb3React<Web3Provider>()
 
@@ -42,7 +43,16 @@ export default observer(function Send() {
   }, [formInputs.source])
 
   useEffect(() => {
-    chainStorore.setToChainType(formInputs.target===Chain.NOBLE ? 'cosmos' : 'evm')
+    const targetChainType = formInputs.target===Chain.NOBLE ? 'cosmos' : 'evm'
+    chainStorore.setToChainType(targetChainType)
+    if (targetChainType==='evm') {
+      if (!cctpMoneyStore.cctpMoneyFees) {
+        fetch('https://cctp.money/api/fees').then(res=>res.json()).then(fees=>{
+          console.log('cctp.money fees', fees)
+          cctpMoneyStore.setCctpMoneyFees(fees)
+        })
+      }
+    }
   }, [formInputs.target])
 
   useEffect(() => {
