@@ -45,13 +45,6 @@ const useTokenMessenger = (chainId: SupportedChainId | undefined) => {
         library.getSigner()
       )
 
-      console.log('depositForBurn', {
-        amount,
-        destinationDomain, // 4
-        mintRecipient, // noble1k74p0mrdm2a94u7kqpcrfv5lxwnd5wh6uruqln
-        burnToken,
-      })
-
       let _mintRecipient = addressToBytes32(mintRecipient)
       if (mintRecipient.startsWith('noble')) {
         const numberArray = bech32.fromWords(bech32.decode(mintRecipient).words)
@@ -59,6 +52,14 @@ const useTokenMessenger = (chainId: SupportedChainId | undefined) => {
         mintRecipientBytes.set(numberArray, 32 - numberArray.length)
         _mintRecipient = ethers.utils.hexlify(mintRecipientBytes)
       }
+
+      console.log('depositForBurn', {
+        amount,
+        destinationDomain, // 4 for noble
+        mintRecipient, // noble...
+        burnToken,
+        _mintRecipient
+      })
 
       return await contract
         .depositForBurn(amount, destinationDomain, _mintRecipient, burnToken)
