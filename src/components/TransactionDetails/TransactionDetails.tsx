@@ -16,8 +16,8 @@ const TransactionDetails: React.FC<Props> = observer(({ transaction, className }
   const cctpMoneyStore = useStore('cctpMoneyStore')
   const chainStore = useStore('chainStore')
 
-  const fees = cctpMoneyStore.cctpMoneyFees.data
-  let feeAmount: number
+  const fees = cctpMoneyStore.cctpMoneyFees?.data
+  let feeAmount: number = NaN
   for (const index in fees) {
     if (Object.prototype.hasOwnProperty.call(fees, index)) {
       const fee = fees[index]
