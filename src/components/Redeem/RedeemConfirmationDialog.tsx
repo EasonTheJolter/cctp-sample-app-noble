@@ -26,6 +26,7 @@ import useMessageTransmitter from 'hooks/useMessageTransmitter'
 import type { Web3Provider } from '@ethersproject/providers'
 import type { SxProps } from '@mui/material'
 import type { Transaction } from 'contexts/AppContext'
+import { useEagerConnect } from 'hooks/useEagerConnect'
 
 interface Props {
   handleClose: () => void
@@ -46,6 +47,8 @@ const RedeemConfirmation: React.FC<Props> = ({
   const [isRedeeming, setIsRedeeming] = useState(false)
   const { receiveMessage } = useMessageTransmitter(chainId)
   const { addTransaction, setTransaction } = useTransactionContext()
+
+  useEagerConnect() // connect automatically on page load
 
   const handleRedeem = async () => {
     const { messageBytes, signature } = transaction
