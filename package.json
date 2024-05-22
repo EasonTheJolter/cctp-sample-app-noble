@@ -6,8 +6,8 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "start": "craco start",
-    "build": "craco build",
+    "start": "cross-env REACT_APP_BACKEND_URL=http://localhost:1323 PORT=1450 craco start",
+    "build": "cross-env REACT_APP_BACKEND_URL=https://cctp-noble.vercel.app craco build",
     "build:stats": "yarn build --stats",
     "analyze": "webpack-bundle-analyzer build/bundle-stats.json",
     "typechain": "typechain --target=ethers-v5 --out-dir ./src/typechain ./src/abis/*.json",
@@ -66,6 +66,7 @@
     "@typescript-eslint/eslint-plugin": "^5.33.0",
     "@typescript-eslint/parser": "^5.33.0",
     "classnames": "^2.3.1",
+    "cross-env": "^7.0.3",
     "eslint": "^8.21.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-config-react-app": "^7.0.1",

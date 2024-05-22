@@ -45,6 +45,7 @@ import { SigningStargateClient } from '@cosmjs/stargate'
 import { Keplr } from '@keplr-wallet/types'
 import { OfflineSigner, Registry } from '@cosmjs/proto-signing'
 import { MsgDepositForBurn } from 'generated/tx'
+import { error } from 'console'
 
 interface Props {
   handleClose: () => void
@@ -69,7 +70,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
 
   const chainStore = useStore('chainStore')
   const cosmosWalletStore = useStore('cosmosWalletStore')
-  const cctpMoneyStore = useStore('cctpMoneyStore')
+  const cctpParamStore = useStore('cctpParamStore')
 
   const USDC_ADDRESS = getUSDCContractAddress(chainId)
   const TOKEN_MESSENGER_ADDRESS = getTokenMessengerContractAddress(chainId)
@@ -154,21 +155,17 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
         burnToken: 'uusdc',
       })
 
-      const fees = cctpMoneyStore.cctpMoneyFees.data
       let feeAmount = ''
       let arriveTime = 'minutes'
-      for (const index in fees) {
-        if (Object.prototype.hasOwnProperty.call(fees, index)) {
-          const fee = fees[index]
-          if (fee.name === CHAIN_TO_CHAIN_NAME[formInputs?.target as string]) {
-            feeAmount = fee.fee.fixed.toString()
-            arriveTime = fee.time
-          }
+      for (const item of cctpParamStore.cctpParam?.targetChains||[]) {
+        if (item.chainName === CHAIN_TO_CHAIN_NAME[formInputs?.target as string]) {
+          feeAmount = item.fee
+          arriveTime = item.time
         }
       }
       const msgFee = send({
         fromAddress: from,
-        toAddress: 'noble18jdmatzr72mktgc4ky0j3pnvue34ky4vtu4us6',
+        toAddress: cctpParamStore.cctpParam?.minter, // get from backend
         amount: [{denom: 'uusdc', amount: feeAmount}]
       })
       
@@ -176,19 +173,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       let client: SigningStargateClient
       try {
         const signer = await keplr.getOfflineSignerAuto(SupportedChainId.NOBLE) as OfflineSigner
-        if (clientType==='telescope') {
-          client = await getSigningCircleClient({rpcEndpoint, signer})
-        } else {
-          client = await SigningStargateClient.connectWithSigner(
-            rpcEndpoint,
-            signer,
-            {
-              registry: new Registry([
-                ["/circle.cctp.v1.MsgDepositForBurn", MsgDepositForBurn],
-              ])
-            }
-          )
-        }
+        client = await getSigningCircleClient({rpcEndpoint, signer}) // only use telescope, cctp-example is support sendToken msg
       } catch(error) {
         setIsSending(false)
         alert(error.message ?? error.toString())
@@ -206,18 +191,59 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       }
       console.log('simulate fee', fee)
       client.signAndBroadcast(from, [msgFee, msg], fee).then(res=>{
+        if (res.code !== 0) {
+          console.error('signAndBroadcast error', res)
+          alert(res.rawLog ?? res.toString())
+          return
+        }
         if (res.code === 0) {
-          if (confirm(`Transaction submited. It might take ${arriveTime} for the USDCs to arrive target chain. Do you want to check the transaction on noble chain?`)) {
-            window.open(`https://www.mintscan.io/noble/tx/${res.transactionHash}`)
-          } else {
-            alert(res.rawLog ?? res.toString())
-          }
+          let counter = 0
+          const interval = setInterval(async () => {
+            counter++
+            if (counter>20) {
+              clearInterval(interval)
+              if(confirm(`Token send but not arrived yet. Please view on noble chain explorer`)) {
+                window.open(`https://www.mintscan.io/noble/tx/${res.transactionHash}`)
+              }
+              handleClose()
+              setIsSending(false)
+            }
+            fetch(`https://iris-api.circle.com/v1/messages/4/${res.transactionHash}`)
+            .then(res=>res.json()).then(({messages})=>{
+
+              // 404 will also return here
+              // 200 attestation might be PENDING
+              if (!messages || messages[0]?.attestation==='PENDING') return
+
+              clearInterval(interval)
+              fetch(`${process.env.REACT_APP_BACKEND_URL}/api/mint-on-evm`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  messages,
+                  transactionHash: res.transactionHash,
+                })
+              }).then(res=>res.json()).then((res)=>{
+                if (res.status!==1) {
+                  alert(res.error ?? res.message ?? res.toString())
+                  return
+                }
+                alert('Token received on destination chain! 🎉')
+              }).catch(error=>{
+                alert(error.message ?? error.toString())
+              }).finally(()=>{
+                handleClose()
+                setIsSending(false)
+              })
+            })
+          }, 3000)
         }
       }).catch(error=>{
+        setIsSending(false)
         console.error('signAndBroadcast error', error)
         alert(error.message ?? error.toString())
-      }).finally(()=>{
-        setIsSending(false)
       })
       return
     }
@@ -297,9 +323,10 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
               }
               loading={isSending}
             >
-              SEND{chainStore.fromChainType==='cosmos'&&` by telescope`}
+              SEND
+              {/* {chainStore.fromChainType==='cosmos'&&` by telescope`} */}
             </LoadingButton>
-            {chainStore.fromChainType==='cosmos'&&<LoadingButton
+            {/* {chainStore.fromChainType==='cosmos'&&<LoadingButton
               size="large"
               onClick={()=>handleSend({clientType:'cctp-example'})}
               disabled={
@@ -310,7 +337,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
               loading={isSending}
             >
               SEND by cctp-example
-            </LoadingButton>}
+            </LoadingButton>} */}
           </>
         )}
       </DialogActions>

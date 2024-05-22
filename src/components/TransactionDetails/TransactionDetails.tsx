@@ -13,17 +13,13 @@ interface Props {
 }
 
 const TransactionDetails: React.FC<Props> = observer(({ transaction, className }) => {
-  const cctpMoneyStore = useStore('cctpMoneyStore')
   const chainStore = useStore('chainStore')
+  const cctpParamStore = useStore('cctpParamStore')
 
-  const fees = cctpMoneyStore.cctpMoneyFees?.data
   let feeAmount: number = NaN
-  for (const index in fees) {
-    if (Object.prototype.hasOwnProperty.call(fees, index)) {
-      const fee = fees[index]
-      if (fee.name === CHAIN_TO_CHAIN_NAME[transaction?.target as string]) {
-        feeAmount = fee.fee.fixed
-      }
+  for (const fee of cctpParamStore.cctpParam?.targetChains||[]) {
+    if (fee.chainName === CHAIN_TO_CHAIN_NAME[transaction?.target as string]) {
+      feeAmount = parseInt(fee.fee)
     }
   }
 

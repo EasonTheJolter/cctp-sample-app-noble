@@ -20,6 +20,7 @@ export default observer(function Send() {
   const chainStorore = useStore('chainStore')
   const cosmosWalletStore = useStore('cosmosWalletStore')
   const cctpMoneyStore = useStore('cctpMoneyStore')
+  const cctpParamStore = useStore('cctpParamStore')
 
   const { deactivate } = useWeb3React<Web3Provider>()
 
@@ -50,6 +51,12 @@ export default observer(function Send() {
         fetch('https://cctp.money/api/fees').then(res=>res.json()).then(fees=>{
           console.log('cctp.money fees', fees)
           cctpMoneyStore.setCctpMoneyFees(fees)
+        })
+      }
+      if (!cctpParamStore.cctpParam) {
+        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/params`).then(res=>res.json()).then(params=>{
+          console.log('cctp params', params)
+          cctpParamStore.setCctpParam(params)
         })
       }
     }
