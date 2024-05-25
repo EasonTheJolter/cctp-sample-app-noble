@@ -238,7 +238,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
                 setIsSending(false)
               })
             })
-          }, 3000)
+          }, 20000)
         }
       }).catch(error=>{
         setIsSending(false)
