@@ -93,7 +93,7 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
       getAddressHelperText === '' &&
       amount !== '' &&
       !isNaN(+amount) &&
-      +amount > 0 &&
+      +amount >= 0.06 &&
       +amount <= walletUSDCBalance &&
       ( ( chainStore.fromChainType==='evm' && CHAIN_TO_CHAIN_ID[source] === chainId) // // this chainId if from useWeb3React, only suitable for EVM
         || ( chainStore.fromChainType==='cosmos' && CHAIN_TO_CHAIN_ID[source] === SupportedChainId.NOBLE )
@@ -164,6 +164,9 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
     }
     if (amount !== '' && +amount > walletUSDCBalance) {
       return `Cannot exceed wallet balance, ${balanceAvailable}`
+    }
+    if (amount !== '' && +amount < 0.06) {
+      return `Minimal input is 0.06`
     }
     return balanceAvailable
   }, [amount, walletUSDCBalance])
@@ -287,7 +290,12 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
           type="number"
           error={
             amount !== '' &&
-            (isNaN(+amount) || +amount <= 0 || +amount > walletUSDCBalance)
+            (
+              isNaN(+amount) 
+              || +amount <= 0 
+              || +amount > walletUSDCBalance
+              || +amount < 0.06 
+            )
           }
           helperText={getAmountHelperText}
           value={amount}

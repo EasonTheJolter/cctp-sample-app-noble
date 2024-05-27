@@ -36,16 +36,20 @@ import type { Web3Provider } from '@ethersproject/providers'
 import type { SxProps } from '@mui/material'
 import type { Chain } from 'constants/chains'
 import type { TransactionInputs } from 'contexts/AppContext'
-import { type BigNumber } from 'ethers'
+import { BigNumber } from 'ethers'
 import { observer } from 'mobx-react-lite'
 import { useStore } from 'stores/hooks'
 
 import {circle, cosmos, getSigningCircleClient} from '../../codegen'
-import { SigningStargateClient } from '@cosmjs/stargate'
+import { MsgTransferEncodeObject, SigningStargateClient } from '@cosmjs/stargate'
 import { Keplr } from '@keplr-wallet/types'
 import { OfflineSigner, Registry } from '@cosmjs/proto-signing'
 import { MsgDepositForBurn } from 'generated/tx'
 import { error } from 'console'
+import watchCosmosTokenChange from 'utils/watchCosmosTokenChange'
+import Long from "long"
+import bn from 'utils/bn'
+import {Decimal} from '@cosmjs/math'
 
 interface Props {
   handleClose: () => void
@@ -54,6 +58,8 @@ interface Props {
   formInputs: TransactionInputs
   sx?: SxProps
 }
+
+const rpcEndpoint = 'https://rpc.mainnet.noble.strange.love'
 
 const SendConfirmationDialog: React.FC<Props> = observer(({
   handleClose,
@@ -67,10 +73,13 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
   const [isAllowanceSufficient, setIsAllowanceSufficient] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [nobleChainReceived, setNobleChainReceived] = useState(false)
+  const [isSendingIBC, setIsSendingIBC] = useState(false)
 
   const chainStore = useStore('chainStore')
   const cosmosWalletStore = useStore('cosmosWalletStore')
   const cctpParamStore = useStore('cctpParamStore')
+  const [nobleBalance, setNobleBalance] = useState('0')
 
   const USDC_ADDRESS = getUSDCContractAddress(chainId)
   const TOKEN_MESSENGER_ADDRESS = getTokenMessengerContractAddress(chainId)
@@ -168,8 +177,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
         toAddress: cctpParamStore.cctpParam?.minter, // get from backend
         amount: [{denom: 'uusdc', amount: feeAmount}]
       })
-      
-      const rpcEndpoint = 'https://rpc.mainnet.noble.strange.love'
+    
       let client: SigningStargateClient
       try {
         const signer = await keplr.getOfflineSignerAuto(SupportedChainId.NOBLE) as OfflineSigner
@@ -259,6 +267,11 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
 
       const { hash } = response
 
+      if (chainStore.toChainType === 'cosmos') {
+        getAttestationAndCheckNobleReceived({address, hash})
+        return
+      }
+
       const transaction = {
         ...formInputs,
         hash,
@@ -274,6 +287,110 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       console.error(err)
       setIsSending(false)
     }
+  }
+
+  const getAttestationAndCheckNobleReceived = ({
+    address, hash
+  }:{
+    address: string,
+    hash: string
+  }) =>{
+    watchCosmosTokenChange({
+      denom: 'uusdc',
+      address,
+    }).then(({newBalance})=>{
+      setIsSending(false)
+      setNobleChainReceived(true)
+      setNobleBalance(newBalance)
+    })
+    return
+    fetch(`https://iris-api.circle.com/attestations/${hash}`).then(res=>res.json()).then(({attestation})=>{
+      if (!attestation || attestation==='PENDING') {
+        setTimeout(()=>{
+          getAttestationAndCheckNobleReceived({address, hash})
+        }, 3000)
+        return
+      }
+      watchCosmosTokenChange({
+        denom: 'uusdc',
+        address,
+      }).then(({newBalance})=>{
+        setIsSending(false)
+        setNobleChainReceived(true)
+        setNobleBalance(newBalance)
+      })
+    })
+  }
+
+  const handleSendIBC = async () => {
+    const keplr = (window as any).keplr as Keplr
+    const signerJolt = keplr.getOfflineSignerOnlyAmino('joltify_1729-1')
+    let receiver: string
+    setIsSendingIBC(true)
+    try {
+      receiver = (await signerJolt.getAccounts())[0].address
+    } catch(error) {
+      setIsSendingIBC(false)
+      alert(error.message ?? error.toString())
+      return
+    }
+
+    let tokenAmount = bn(amount).times(10**6)
+    if (bn(nobleBalance).minus(tokenAmount).lt(50000)) {
+      tokenAmount = bn(nobleBalance).minus(50000)
+      return
+    }
+
+    const msg:MsgTransferEncodeObject = {
+      typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
+      value: {
+        sourcePort: "transfer",
+        sourceChannel: 'channel-81',
+        token: {denom: 'uusdc', amount: tokenAmount.toFixed(0) },
+        sender: address, 
+        receiver, // get jolt addr from keplr ,
+        timeoutTimestamp: BigInt((new Date().getTime()+10*60*1000)*1000000), // Long.fromNumber((new Date().getTime()+10*60*1000)*1000000),
+        memo: ''
+      }
+    }
+    
+    let client: SigningStargateClient
+    try {
+      const signer = keplr.getOfflineSignerOnlyAmino(SupportedChainId.NOBLE)
+      client = await SigningStargateClient.connectWithSigner(rpcEndpoint, signer, {gasPrice: {amount: Decimal.fromUserInput('4000', 0), denom: 'uusdc'}})
+    } catch(error) {
+      setIsSendingIBC(false)
+      alert(error.message ?? error.toString())
+      return
+    }
+    let fee = {amount: [{amount: '0', denom: 'uusdc'}], gas: '200000'}
+    try {
+      fee = {amount: [{amount: '0', denom: 'uusdc'}], gas:((await client.simulate(address, [msg],''))*Number(2)).toString()}
+    } catch(error) {
+      console.error('simulate error', error)
+      setIsSendingIBC(false)
+      alert(error.message ?? error.toString())
+      return
+    }
+    
+    client.signAndBroadcast(address, [msg], fee).then(res=>{
+      if (res.code===0) {
+        setTimeout(()=>{
+          setIsSendingIBC(false)
+          handleClose()
+          if (confirm(`Token sent to Joltify! 🎉`)) {
+            window.open(`https://explorer.joltify.io/joltify/accounts/${receiver}`)
+          }
+        }, 10000)
+        return
+      }
+      setIsSendingIBC(false)
+      alert(res.rawLog ?? res.toString())
+    }).catch(error=>{
+      setIsSendingIBC(false)
+      alert(error.message ?? error.toString())
+    })
+    
   }
 
   return (
@@ -296,9 +413,9 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       </DialogContent>
 
       <DialogActions className="mt-8">
-        <Button size="large" color="secondary" onClick={handleClose}>
+        {chainStore.toChainType==='evm'&&<Button size="large" color="secondary" onClick={handleClose}>
           BACK
-        </Button>
+        </Button>}
         {( chainStore.fromChainType==='evm' && !isAllowanceSufficient) ? (
           <LoadingButton
             size="large"
@@ -316,6 +433,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
               size="large"
               onClick={()=>handleSend({clientType:'telescope'})}
               disabled={
+                nobleChainReceived ||
                 isSending || ( 
                   (chainStore.fromChainType==='evm' && CHAIN_TO_CHAIN_ID[formInputs.source] !== chainId) // chainId is from evm wallet
                   || (chainStore.fromChainType==='cosmos' && CHAIN_TO_CHAIN_ID[formInputs.source] !== SupportedChainId.NOBLE)
@@ -323,21 +441,26 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
               }
               loading={isSending}
             >
-              SEND
-              {/* {chainStore.fromChainType==='cosmos'&&` by telescope`} */}
+              {chainStore.toChainType==='cosmos'&&'1. '}SEND{chainStore.toChainType==='cosmos'&&' to Noble'}
             </LoadingButton>
-            {/* {chainStore.fromChainType==='cosmos'&&<LoadingButton
-              size="large"
-              onClick={()=>handleSend({clientType:'cctp-example'})}
-              disabled={
-                isSending || ( 
-                  (chainStore.fromChainType==='cosmos' && CHAIN_TO_CHAIN_ID[formInputs.source] !== SupportedChainId.NOBLE)
-                )
-              }
-              loading={isSending}
-            >
-              SEND by cctp-example
-            </LoadingButton>} */}
+
+            {chainStore.toChainType==='cosmos' &&
+              <>
+                <div>{'->'}</div>
+                <div style={{color: nobleChainReceived?undefined:'grey'}}>
+                  2. Received On Noble
+                </div>
+                <div>{'->'}</div>
+                <LoadingButton
+                  size="large"
+                  onClick={handleSendIBC}
+                  disabled={!nobleChainReceived||isSendingIBC}
+                  loading={isSendingIBC}
+                >
+                  3. IBC to Joltify
+                </LoadingButton>
+              </>
+            }
           </>
         )}
       </DialogActions>
