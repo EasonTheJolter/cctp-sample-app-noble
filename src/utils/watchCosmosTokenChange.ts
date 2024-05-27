@@ -9,11 +9,11 @@ const watchCosmosTokenChange = ({
   timeoutSecond?: number, // seconds
   direction?: 'inc'|'desc'
 }): Promise<{newBalance: string}> => {
-  const fetchUrl = `https://lcd.mainnet.noble.strange.love/cosmos/bank/v1beta1/balances/${address}/by_denom?denom=${denom}`
+  const fetchUrl = `https://lcd-noble.keplr.app/cosmos/bank/v1beta1/balances/${address}`
   return new Promise(async (resolve, reject) => {
     let oldAmount = '0'
     try {
-      oldAmount = (await (await fetch(fetchUrl)).json()).balance.amount
+      oldAmount = (await (await fetch(fetchUrl)).json()).balances?.find((b: any) => b.denom === denom)?.amount ?? '0'
     } catch(err) {
       reject(err)
       return
@@ -27,7 +27,7 @@ const watchCosmosTokenChange = ({
         reject({message: `timeout ${timeoutSecond}s`})
       }
       try {
-        const newAmount = (await (await fetch(fetchUrl)).json()).balance.amount
+        const newAmount = (await (await fetch(fetchUrl)).json()).balances?.find((b: any) => b.denom === denom)?.amount ?? '0'
         if (
           (direction==='inc' && Number(newAmount) > Number(oldAmount))
           || (direction==='desc' && Number(newAmount) < Number(oldAmount))
