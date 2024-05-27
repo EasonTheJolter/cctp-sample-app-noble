@@ -298,27 +298,11 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
     watchCosmosTokenChange({
       denom: 'uusdc',
       address,
+      timeoutSecond: 99999
     }).then(({newBalance})=>{
       setIsSending(false)
       setNobleChainReceived(true)
       setNobleBalance(newBalance)
-    })
-    return
-    fetch(`https://iris-api.circle.com/attestations/${hash}`).then(res=>res.json()).then(({attestation})=>{
-      if (!attestation || attestation==='PENDING') {
-        setTimeout(()=>{
-          getAttestationAndCheckNobleReceived({address, hash})
-        }, 3000)
-        return
-      }
-      watchCosmosTokenChange({
-        denom: 'uusdc',
-        address,
-      }).then(({newBalance})=>{
-        setIsSending(false)
-        setNobleChainReceived(true)
-        setNobleBalance(newBalance)
-      })
     })
   }
 
