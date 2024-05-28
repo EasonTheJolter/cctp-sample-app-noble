@@ -147,8 +147,8 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
     if (address !== '' && address !== account) {
       // return "Destination address doesn't match active wallet address"
     }
-    if (chainStore.toChainType==='cosmos' && !isCosmosAddress({address, prefix: 'noble'})) {
-      return 'Invalid Noble address'
+    if (chainStore.toChainType==='cosmos' && !isCosmosAddress({address, prefix: 'jolt'})) {
+      return 'Invalid Joltify address'
     }
     if (chainStore.toChainType==='evm' && !ethers.utils.isAddress(address)) {
       return 'Invalid Ethereum address'
@@ -244,8 +244,12 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
             }
           >
             {CHAIN_SELECT_ITEMS.map((chain) => {
-              // if (chain.value !== Chain.NOBLE) return null
-              return renderChainMenuItem(chain, source)
+              let chain_ = {...chain}
+              if (chain_.value === Chain.NOBLE) {
+                chain_.label = 'Joltify'
+                chain_.icon = CHAIN_ICONS.JOLTIFY
+              }
+              return renderChainMenuItem(chain_, source)
             })}
           </Select>
         </FormControl>
