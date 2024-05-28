@@ -50,6 +50,7 @@ import watchCosmosTokenChange from 'utils/watchCosmosTokenChange'
 import Long from "long"
 import bn from 'utils/bn'
 import {Decimal} from '@cosmjs/math'
+import cosmosAddrConvertor from 'utils/cosmosAddrConvertor'
 
 interface Props {
   handleClose: () => void
@@ -154,7 +155,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       const zeroesNeeded = 64 - cleanedMintRecipient.length;
       const mintRecipient = '0'.repeat(zeroesNeeded) + cleanedMintRecipient;
       const buffer = Buffer.from(mintRecipient, "hex");
-      const mintRecipientBytes = new Uint8Array(buffer)
+      const mintRecipientBytes = new Uint8Array(buffer) // the same for all cosmos address if from the same privete key
 
       const msg = depositForBurn({
         from,
@@ -308,16 +309,6 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
 
   const handleSendIBC = async () => {
     const keplr = (window as any).keplr as Keplr
-    const signerJolt = keplr.getOfflineSignerOnlyAmino('joltify_1729-1')
-    let receiver: string
-    setIsSendingIBC(true)
-    try {
-      receiver = (await signerJolt.getAccounts())[0].address
-    } catch(error) {
-      setIsSendingIBC(false)
-      alert(error.message ?? error.toString())
-      return
-    }
 
     let tokenAmount = bn(amount).times(10**6)
     if (bn(nobleBalance).minus(tokenAmount).lt(50000)) {
@@ -325,19 +316,22 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       return
     }
 
+    const sender = cosmosAddrConvertor(address, 'noble')
+    const receiver = cosmosAddrConvertor(address, 'jolt')
+
     const msg:MsgTransferEncodeObject = {
       typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
       value: {
         sourcePort: "transfer",
         sourceChannel: 'channel-81',
         token: {denom: 'uusdc', amount: tokenAmount.toFixed(0) },
-        sender: address, 
-        receiver, // get jolt addr from keplr ,
+        sender, 
+        receiver,
         timeoutTimestamp: BigInt((new Date().getTime()+10*60*1000)*1000000), // Long.fromNumber((new Date().getTime()+10*60*1000)*1000000),
         memo: ''
       }
     }
-    
+    setIsSendingIBC(true)
     let client: SigningStargateClient
     try {
       const signer = keplr.getOfflineSignerOnlyAmino(SupportedChainId.NOBLE)
@@ -349,7 +343,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
     }
     let fee = {amount: [{amount: '0', denom: 'uusdc'}], gas: '200000'}
     try {
-      fee = {amount: [{amount: '0', denom: 'uusdc'}], gas:((await client.simulate(address, [msg],''))*Number(2)).toString()}
+      fee = {amount: [{amount: '0', denom: 'uusdc'}], gas:((await client.simulate(sender, [msg],''))*Number(2)).toString()}
     } catch(error) {
       console.error('simulate error', error)
       setIsSendingIBC(false)
@@ -357,7 +351,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       return
     }
     
-    client.signAndBroadcast(address, [msg], fee).then(res=>{
+    client.signAndBroadcast(sender, [msg], fee).then(res=>{
       if (res.code===0) {
         setTimeout(()=>{
           setIsSendingIBC(false)

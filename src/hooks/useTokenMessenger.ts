@@ -46,7 +46,7 @@ const useTokenMessenger = (chainId: SupportedChainId | undefined) => {
       )
 
       let _mintRecipient = addressToBytes32(mintRecipient)
-      if (mintRecipient.startsWith('noble')) {
+      if (mintRecipient.startsWith('jolt')) {
         const numberArray = bech32.fromWords(bech32.decode(mintRecipient).words)
         const mintRecipientBytes = new Uint8Array(32)
         mintRecipientBytes.set(numberArray, 32 - numberArray.length)
@@ -56,7 +56,7 @@ const useTokenMessenger = (chainId: SupportedChainId | undefined) => {
       console.log('depositForBurn', {
         amount,
         destinationDomain, // 4 for noble
-        mintRecipient, // noble...
+        mintRecipient, // noble or jolt, the mintRecipientBytes is the same
         burnToken,
         _mintRecipient
       })

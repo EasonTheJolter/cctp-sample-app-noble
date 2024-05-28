@@ -1,3 +1,5 @@
+import cosmosAddrConvertor from "./cosmosAddrConvertor"
+
 const watchCosmosTokenChange = ({
   denom,
   address,
@@ -9,7 +11,7 @@ const watchCosmosTokenChange = ({
   timeoutSecond?: number, // seconds
   direction?: 'inc'|'desc'
 }): Promise<{newBalance: string}> => {
-  const fetchUrl = `https://lcd-noble.keplr.app/cosmos/bank/v1beta1/balances/${address}`
+  const fetchUrl = `https://lcd-noble.keplr.app/cosmos/bank/v1beta1/balances/${cosmosAddrConvertor(address, 'noble')}`
   return new Promise(async (resolve, reject) => {
     let oldAmount = '0'
     try {
