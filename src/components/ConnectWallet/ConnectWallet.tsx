@@ -14,6 +14,7 @@ import type { AbstractConnector } from '@web3-react/abstract-connector'
 import connectCosmosWallet from 'utils/connectCosmosWallet'
 import { observer } from 'mobx-react-lite'
 import { useStore } from 'stores/hooks'
+import cosmosAddrConvertor from 'utils/cosmosAddrConvertor'
 
 const ConnectWallet = observer(() => {
   const { activate, active, account, deactivate, error } =
@@ -77,10 +78,10 @@ const ConnectWallet = observer(() => {
         >
           {account
             ? getAddressAbbreviation(account)
-            : `${cosmosWalletStore.address?.slice(
+            : `${cosmosAddrConvertor(cosmosWalletStore.address, 'jolt')?.slice(
                 0,
                 6
-              )}...${cosmosWalletStore.address?.slice(-4)}`}
+              )}...${cosmosAddrConvertor(cosmosWalletStore.address, 'jolt')?.slice(-4)}`}
         </Button>
       ) : (
         <div className="relative inline">

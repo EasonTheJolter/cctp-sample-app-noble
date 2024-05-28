@@ -16,7 +16,7 @@ import { formatUnits } from 'ethers/lib/utils'
 import { CHAIN_ICONS } from 'assets/chains'
 import NetworkAlert from 'components/NetworkAlert/NetworkAlert'
 import { Chain, CHAIN_TO_CHAIN_ID, CHAIN_TO_CHAIN_NAME, SupportedChainId } from 'constants/chains'
-import { DEFAULT_DECIMALS } from 'constants/tokens'
+import { DEFAULT_DECIMALS, USDC_IBC_ON_JOLTIFY } from 'constants/tokens'
 import useTokenBalance from 'hooks/useTokenBalance'
 import { getUSDCContractAddress } from 'utils/addresses'
 
@@ -27,6 +27,8 @@ import { observer } from 'mobx-react-lite'
 import { useStore } from 'stores/hooks'
 import isCosmosAddress from 'utils/isCosmosAddress'
 import { ethers } from 'ethers'
+import cosmosAddrConvertor from 'utils/cosmosAddrConvertor'
+import { LCD_URL_JOLTIFY } from 'constants/index'
 
 interface SelectItem {
   value: Chain
@@ -106,9 +108,9 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
       setWalletUSDCBalance(Number(formatUnits(balance, DEFAULT_DECIMALS)))
     } else if (cosmosWalletStore.address) { // keplr wallet connected
       // get cosmos wallet balance
-      fetch(`https://lcd-noble.keplr.app/cosmos/bank/v1beta1/balances/${cosmosWalletStore.address}`)
+      fetch(`${LCD_URL_JOLTIFY}/cosmos/bank/v1beta1/balances/${cosmosAddrConvertor(cosmosWalletStore.address, 'jolt')}`)
       .then((response) => response.json()).then((data) => {
-        const balance = data.balances.find((balance: any) => balance.denom === 'uusdc')?.amount || '0'
+        const balance = data.balances.find((balance: any) => balance.denom === USDC_IBC_ON_JOLTIFY)?.amount || '0'
         setWalletUSDCBalance(Number(balance)/10**6)
       })
     } else {
@@ -222,8 +224,12 @@ const SendForm = observer(({ handleNext, handleUpdateForm, formInputs }: Props) 
             onChange={(event) => handleSourceChange(event.target.value)}
           >
             {CHAIN_SELECT_ITEMS.map((chain) => {
-              // if (chain.value === Chain.NOBLE) return null
-              return renderChainMenuItem(chain)
+              let chain_ = {...chain}
+              if (chain.value === Chain.NOBLE) {
+                chain_.label = 'Joltify'
+                chain_.icon = CHAIN_ICONS.JOLTIFY
+              }
+              return renderChainMenuItem(chain_)
             })}
           </Select>
         </FormControl>

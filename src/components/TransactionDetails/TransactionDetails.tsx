@@ -28,7 +28,7 @@ const TransactionDetails: React.FC<Props> = observer(({ transaction, className }
       <div className="flex items-center border-t border-licorice-500 py-4">
         <dt className="w-48 text-sm font-normal text-licorice-100">Source</dt>
         <dd className="text-base font-bold">
-          {CHAIN_TO_CHAIN_NAME[transaction?.source as string]}
+          {CHAIN_TO_CHAIN_NAME[transaction?.source as string]==='Noble'?'Joltify':CHAIN_TO_CHAIN_NAME[transaction?.source as string]}
         </dd>
       </div>
 

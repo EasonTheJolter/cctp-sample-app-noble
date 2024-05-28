@@ -17,7 +17,7 @@ import { parseUnits } from 'ethers/lib/utils'
 import NetworkAlert from 'components/NetworkAlert/NetworkAlert'
 import TransactionDetails from 'components/TransactionDetails/TransactionDetails'
 import { CHAIN_TO_CHAIN_ID, CHAIN_TO_CHAIN_NAME, DestinationDomain, SupportedChainId } from 'constants/chains'
-import { DEFAULT_DECIMALS } from 'constants/tokens'
+import { DEFAULT_DECIMALS, USDC_IBC_ON_JOLTIFY } from 'constants/tokens'
 import {
   TransactionStatus,
   TransactionType,
@@ -43,14 +43,12 @@ import { useStore } from 'stores/hooks'
 import {circle, cosmos, getSigningCircleClient} from '../../codegen'
 import { MsgTransferEncodeObject, SigningStargateClient } from '@cosmjs/stargate'
 import { Keplr } from '@keplr-wallet/types'
-import { OfflineSigner, Registry } from '@cosmjs/proto-signing'
-import { MsgDepositForBurn } from 'generated/tx'
-import { error } from 'console'
+import { OfflineSigner } from '@cosmjs/proto-signing'
 import watchCosmosTokenChange from 'utils/watchCosmosTokenChange'
-import Long from "long"
 import bn from 'utils/bn'
 import {Decimal} from '@cosmjs/math'
 import cosmosAddrConvertor from 'utils/cosmosAddrConvertor'
+import { RPC_URL_JOLTIFY } from 'constants/index'
 
 interface Props {
   handleClose: () => void
@@ -132,9 +130,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
     }
   }
 
-  const handleSend = async ({clientType}:{
-    clientType: 'telescope'|'cctp-example'
-  }) => {
+  const handleSend = async () => {
     
     const amountToSend: BigNumber = parseUnits(
       amount.toString(),
@@ -157,9 +153,15 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       const buffer = Buffer.from(mintRecipient, "hex");
       const mintRecipientBytes = new Uint8Array(buffer) // the same for all cosmos address if from the same privete key
 
+      let tokenAmount = bn(amount).times(10**6)
+      if (bn(nobleBalance).minus(tokenAmount).lt(50000)) {
+        tokenAmount = bn(nobleBalance).minus(50000)
+        return
+      }
+
       const msg = depositForBurn({
         from,
-        amount: amountToSend.toString(),
+        amount: tokenAmount.toFixed(0),
         destinationDomain: DestinationDomain[target as Chain], 
         mintRecipient: mintRecipientBytes,
         burnToken: 'uusdc',
@@ -307,6 +309,7 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
     })
   }
 
+  // from noble to joltify
   const handleSendIBC = async () => {
     const keplr = (window as any).keplr as Keplr
 
@@ -371,6 +374,72 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
     
   }
 
+  const sendIbcFromJoltifyToNoble = async () => {
+    const keplr = (window as any).keplr as Keplr
+
+    let tokenAmount = bn(amount).times(10**6)
+
+    const sender = cosmosAddrConvertor(cosmosWalletStore.address, 'jolt')
+    const receiver = cosmosAddrConvertor(cosmosWalletStore.address, 'noble')
+
+    const msg:MsgTransferEncodeObject = {
+      typeUrl: "/ibc.applications.transfer.v1.MsgTransfer",
+      value: {
+        sourcePort: "transfer",
+        sourceChannel: 'channel-1',
+        token: {denom: USDC_IBC_ON_JOLTIFY, amount: tokenAmount.toFixed(0) },
+        sender, 
+        receiver,
+        timeoutTimestamp: BigInt((new Date().getTime()+10*60*1000)*1000000),
+        memo: ''
+      }
+    }
+
+    setIsSendingIBC(true)
+    let client: SigningStargateClient
+    try {
+      const signer = keplr.getOfflineSignerOnlyAmino('joltify_1729-1')
+      client = await SigningStargateClient.connectWithSigner(
+        RPC_URL_JOLTIFY, 
+        signer, 
+        {gasPrice: {amount: Decimal.fromUserInput('4000', 0), denom: 'ujolt'}}
+      )
+    } catch(error) {
+      setIsSendingIBC(false)
+      alert(error.message ?? error.toString())
+      return
+    }
+
+    let fee = {amount: [{amount: '0', denom: 'ujolt'}], gas: '200000'}
+    try {
+      fee = {amount: [{amount: '0', denom: 'ujolt'}], gas:((await client.simulate(sender, [msg],''))*Number(2)).toString()}
+    } catch(error) {
+      console.error('simulate error', error)
+      setIsSendingIBC(false)
+      alert(error.message ?? error.toString())
+      return
+    }
+
+    client.signAndBroadcast(sender, [msg], fee).then(res=>{
+      if (res.code===0) {
+        watchCosmosTokenChange({
+          denom: 'uusdc',
+          address: receiver,
+        }).then(({newBalance})=>{
+          setIsSendingIBC(false)
+          setNobleChainReceived(true)
+          setNobleBalance(newBalance)
+        })
+        return
+      }
+      setIsSendingIBC(false)
+      alert(res.rawLog ?? res.toString())
+    }).catch(error=>{
+      setIsSendingIBC(false)
+      alert(error.message ?? error.toString())
+    })
+  }
+
   return (
     <Dialog
       maxWidth="md"
@@ -391,9 +460,11 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
       </DialogContent>
 
       <DialogActions className="mt-8">
-        {chainStore.toChainType==='evm'&&<Button size="large" color="secondary" onClick={handleClose}>
-          BACK
-        </Button>}
+        {(chainStore.toChainType==='evm' && chainStore.fromChainType==='evm')&&
+          <Button size="large" color="secondary" onClick={handleClose}>
+            BACK
+          </Button>
+        }
         {( chainStore.fromChainType==='evm' && !isAllowanceSufficient) ? (
           <LoadingButton
             size="large"
@@ -407,20 +478,31 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
           </LoadingButton>
         ) : (
           <>
-            <LoadingButton
-              size="large"
-              onClick={()=>handleSend({clientType:'telescope'})}
-              disabled={
-                nobleChainReceived ||
-                isSending || ( 
-                  (chainStore.fromChainType==='evm' && CHAIN_TO_CHAIN_ID[formInputs.source] !== chainId) // chainId is from evm wallet
-                  || (chainStore.fromChainType==='cosmos' && CHAIN_TO_CHAIN_ID[formInputs.source] !== SupportedChainId.NOBLE)
-                )
-              }
-              loading={isSending}
-            >
-              {chainStore.toChainType==='cosmos'&&'1. '}SEND{chainStore.toChainType==='cosmos'&&' to Noble'}
-            </LoadingButton>
+            {chainStore.fromChainType==='evm' &&
+              <LoadingButton
+                size="large"
+                onClick={()=>{
+                  if (chainStore.fromChainType==='cosmos') {
+                    sendIbcFromJoltifyToNoble()
+                    return
+                  }
+                  handleSend()
+                }}
+                disabled={
+                  nobleChainReceived ||
+                  isSending || ( 
+                    (chainStore.fromChainType==='evm' && CHAIN_TO_CHAIN_ID[formInputs.source] !== chainId) // chainId is from evm wallet
+                  )
+                }
+                loading={
+                  isSending
+                }
+              >
+                {chainStore.toChainType==='cosmos'&&'1. '}SEND{
+                  (chainStore.toChainType==='cosmos')&&' to Noble'
+                }
+              </LoadingButton>
+            }
 
             {chainStore.toChainType==='cosmos' &&
               <>
@@ -436,6 +518,43 @@ const SendConfirmationDialog: React.FC<Props> = observer(({
                   loading={isSendingIBC}
                 >
                   3. IBC to Joltify
+                </LoadingButton>
+              </>
+            }
+
+            {chainStore.fromChainType==='cosmos' &&
+              <>
+                <LoadingButton
+                  size="large"
+                  onClick={()=>{
+                    if (chainStore.fromChainType==='cosmos') {
+                      sendIbcFromJoltifyToNoble()
+                      return
+                    }
+                    handleSend()
+                  }}
+                  disabled={
+                    nobleChainReceived ||
+                    isSendingIBC
+                  }
+                  loading={isSendingIBC}
+                >
+                  {chainStore.toChainType==='cosmos'&&'1. '}SEND{
+                    ' to Noble'
+                  }
+                </LoadingButton>
+                <div>{'->'}</div>
+                <div style={{color: nobleChainReceived?undefined:'grey'}}>
+                  2. Received On Noble
+                </div>
+                <div>{'->'}</div>
+                <LoadingButton
+                  size="large"
+                  onClick={handleSend}
+                  disabled={!nobleChainReceived||isSending}
+                  loading={isSending}
+                >
+                  3. Mint on {CHAIN_TO_CHAIN_NAME[formInputs?.target as string]}
                 </LoadingButton>
               </>
             }
